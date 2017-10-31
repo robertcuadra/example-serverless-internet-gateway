@@ -1,0 +1,428 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "DCG VPC with 2 subnets, 1 private and 1 public through their IGW and NAT Gateway respectively",
+  "Parameters": {
+    "Project" : {
+      "Description" : "Project name to tag resources with",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern" : "[a-z]*",
+      "ConstraintDescription" : "any alphabetic string (1-16) characters in length"
+    },
+    "Environment" : {
+      "Description" : "Environment name to tag resources with",
+      "Type" : "String",
+      "AllowedValues" : [ "dev", "qa", "prod" ],
+      "ConstraintDescription" : "must be one of dev, qa, or prod"
+    },
+    "VpcCIDR" : {
+      "Description" : "The VPC CIDR",
+      "Type" : "String",
+      "ConstraintDescription" : "It can be 10.0.0.0/16"
+    },
+    "PublicSubnet1Param" : {
+      "Description" : "The public subnet 1",
+      "Type" : "String",
+      "ConstraintDescription" : "It can be 10.0.0.0/24"
+    },
+    "PrivateSubnet1Param" : {
+      "Description" : "The Private subnet 1",
+      "Type" : "String",
+      "ConstraintDescription" : "It can be 10.0.1.0/24"
+    },
+    "SGPortIngress" : {
+      "Default" : "80",
+      "Description" : "TCP/IP port for the VPC SG",
+      "Type" : "Number",
+      "MinValue" : "0",
+      "MaxValue" : "65535"
+    }
+  },
+  "Mappings": {
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": { "Ref": "VpcCIDR" },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "vpc"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "PublicSubnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "CidrBlock": { "Ref": "PublicSubnet1Param" },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "public-subnet"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "igwy"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "GatewayToInternet": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Public"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "rt"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "GatewayToInternet",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicSubnetRouteTableAssociation1": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+    "PrivateSubnet1": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "CidrBlock": { "Ref": "PrivateSubnet1Param" },
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": {
+                "Ref": "AWS::Region"
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Private"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "private-subnet"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "PrivateRouteTable1": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Private"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "rt"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "PrivateSubnetRouteTableAssociation1": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PrivateSubnet1"
+        },
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable1"
+        }
+      }
+    },
+    "PrivateRoute1": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateRouteTable1"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NATGateway1"
+        }
+      }
+    },
+    "NATIPAddress1": {
+      "Type": "AWS::EC2::EIP",
+      "DependsOn": "GatewayToInternet",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NATGateway1": {
+      "DependsOn": "GatewayToInternet",
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NATIPAddress1",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        },
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Network",
+            "Value": "Private"
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "natgwy"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    },
+    "VPCSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "VPN Security Group",
+        "VpcId" : {"Ref" : "VPC"},
+        "SecurityGroupIngress" : [{
+          "IpProtocol" : "tcp",
+          "FromPort" : { "Ref": "SGPortIngress" },
+          "ToPort" : { "Ref": "SGPortIngress" },
+          "CidrIp" : "0.0.0.0/0"
+        }],
+        "SecurityGroupEgress" : [{
+          "IpProtocol" : "tcp",
+          "FromPort" : "0",
+          "ToPort" : "65535",
+          "CidrIp" : "0.0.0.0/0"
+        }],
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "AWS::StackId"
+            }
+          },
+          {
+            "Key": "Name",
+            "Value" : { "Fn::Join" : [ "-", [ { "Ref" : "Project" }, { "Ref" : "Environment" }, "sg"] ] }
+          },
+          {
+            "Key": "Environment",
+            "Value":  { "Ref": "Environment" }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "VpcId": {
+      "Description": "VPC",
+      "Value": {
+        "Ref": "VPC"
+      }
+    },
+    "VPCSecurityGroupId": {
+      "Description": "Security Group ID",
+      "Value": {
+        "Ref": "VPCSecurityGroup"
+      }
+    },
+    "NatEIP": {
+      "Description": "NAT EIP",
+      "Value": {
+        "Ref": "NATIPAddress1"
+      }
+    },
+    "PublicSubnets": {
+      "Description": "Public subnet",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "PublicSubnet1"
+            }
+          ]
+        ]
+      }
+    },
+    "PrivateSubnets": {
+      "Description": "Private subnet",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "PrivateSubnet1"
+            }
+          ]
+        ]
+      }
+    },
+    "AZs": {
+      "Description": "Availability zones",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Fn::GetAtt": [
+                "PrivateSubnet1",
+                "AvailabilityZone"
+              ]
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

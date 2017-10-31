@@ -1,0 +1,32 @@
+{
+  "name": "example-serverless-internet-gateway",
+  "version": "1.0.0",
+  "description": "lambda + internet gateway",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robertcuadra/example-serverless-internet-gateway.git"
+  },
+  "keywords": [
+    "serverless",
+    "lambda",
+    "internet",
+    "gateway",
+    "aws",
+    "cloudformation"
+  ],
+  "author": "Robert Cuadra",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/robertcuadra/example-serverless-internet-gateway/issues"
+  },
+  "homepage": "https://github.com/robertcuadra/example-serverless-internet-gateway#readme",
+  "dependencies": {
+    "request": "^2.83.0",
+    "request-promise": "^4.2.2",
+    "serverless": "^1.23.0"
+  }
+}

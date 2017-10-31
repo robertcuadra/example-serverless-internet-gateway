@@ -1,0 +1,28 @@
+service: serverless-internet-gateway
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - 'ec2:CreateNetworkInterface'
+        - 'ec2:DescribeNetworkInterfaces'
+        - 'ec2:DeleteNetworkInterface'
+        - 'ec2:DetachNetworkInterface'
+      Resource: '*'
+  vpc:
+    securityGroupIds:
+      - ${cf:serverless-internet-gateway.VPCSecurityGroupId}
+    subnetIds:
+      - ${cf:serverless-internet-gateway.PrivateSubnets}
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http:
+          path: '/hello'
+          method: get
